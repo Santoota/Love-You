@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Forever?</title>
+
+  <style>
+    @font-face {
+      font-family: "Sparkling Valentine";
+      src:
+        url("SparklingValentine.woff2") format("woff2"),
+        url("SparklingValentine.woff") format("woff"),
+        url("SparklingValentine.ttf") format("truetype");
+      font-display: swap;
+    }
+
+    :root{
+      --pink: #ff77b7;
+      --card-radius: 22px;
+      --shadow: 0 18px 50px rgba(0,0,0,.18);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body{
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 20% 15%, #ffd1e8 0%, var(--pink) 45%, #ff5aa8 100%);
+      overflow: hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    /* Noise overlay */
+    body::before{
+      content:"";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .22;
+      mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'>\
+<filter id='n'>\
+<feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/>\
+</filter>\
+<rect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/>\
+</svg>");
+      background-size: 180px 180px;
+      z-index: 0;
+    }
+
+    /* Floating hearts layer */
+    .hearts-layer{
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0; /* behind cards (cards have z-index:1) */
+    }
+    .heart-float{
+      position: absolute;
+      bottom: -40px;
+      font-size: 18px;
+      opacity: .18;
+      filter: blur(.2px);
+      animation: floatUp linear forwards;
+      will-change: transform, opacity;
+    }
+    @keyframes floatUp{
+      0%   { transform: translateY(0) translateX(0) scale(.9); opacity: 0; }
+      10%  { opacity: .18; }
+      90%  { opacity: .16; }
+      100% { transform: translateY(-110vh) translateX(var(--drift, 0px)) scale(1.25); opacity: 0; }
+    }
+
+    .wrap{
+      width: min(720px, 92vw);
+      display: grid;
+      gap: 18px;
+      justify-items: center;
+      z-index: 1;
+      padding: 18px;
+    }
+
+    .question-card{
+      width: 100%;
+      background: white;
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow);
+      padding: 34px 28px;
+      text-align: center;
+    }
+
+    .question{
+      margin: 0;
+      color: #000;
+      font-family: "Sparkling Valentine", cursive;
+      font-size: clamp(28px, 4.2vw, 44px);
+      line-height: 1.15;
+      letter-spacing: .2px;
+    }
+
+    .choices{
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .choice{
+      background: white;
+      border: 2px solid rgba(0,0,0,.12);
+      border-radius: var(--card-radius);
+      box-shadow: 0 10px 30px rgba(0,0,0,.12);
+      padding: 16px 14px;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform .08s ease, box-shadow .2s ease, border-color .2s ease;
+      user-select: none;
+    }
+
+    .choice:active{ transform: scale(.98); }
+    .choice:hover{
+      border-color: rgba(0,0,0,.22);
+      box-shadow: 0 14px 36px rgba(0,0,0,.16);
+    }
+
+    .heart{ font-size: 20px; line-height: 1; }
+
+    /* Toast (error message) */
+    .toast{
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      opacity: 0;
+      background: rgba(0,0,0,.85);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 999px;
+      box-shadow: 0 14px 30px rgba(0,0,0,.25);
+      z-index: 50;
+      transition: opacity .2s ease, transform .2s ease;
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+    .toast.show{
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Modal */
+    .modal-overlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.35);
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 60;
+      transition: opacity .2s ease;
+      padding: 18px;
+    }
+    .modal-overlay.open{
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal{
+      width: min(520px, 92vw);
+      background: white;
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow);
+      padding: 28px 22px;
+      text-align: center;
+      transform: translateY(10px);
+      transition: transform .2s ease;
+    }
+    .modal-overlay.open .modal{ transform: translateY(0); }
+
+    .modal p{
+      margin: 0;
+      font-family: "Sparkling Valentine", cursive;
+      font-size: clamp(28px, 4.3vw, 44px);
+      color: #000;
+      line-height: 1.1;
+    }
+
+    .close-btn{
+      margin-top: 16px;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 800;
+      background: rgba(0,0,0,.08);
+    }
+    .close-btn:hover{ background: rgba(0,0,0,.12); }
+
+    @media (max-width: 520px){
+      .choices{ grid-template-columns: 1fr; }
+    }
+
+    /* Tiny heart hint */
+    .music-hint{
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 80;
+      background: rgba(255,255,255,.92);
+      color: #000;
+      border-radius: 999px;
+      padding: 8px 12px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.18);
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: .2px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .music-hint.show{
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- background hearts -->
+  <div class="hearts-layer" id="heartsLayer" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <div class="question-card">
+      <h1 class="question">Do you want to me mine forever?</h1>
+    </div>
+
+    <div class="choices">
+      <button class="choice" id="yesBtn" type="button">
+        YES <span class="heart" aria-hidden="true">❤️</span>
+      </button>
+      <button class="choice" id="noBtn" type="button">NO</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="modal-overlay" id="modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalText">
+      <p id="modalText">I knew it ❤️</p>
+      <button class="close-btn" id="closeBtn" type="button">Close</button>
+    </div>
+  </div>
+
+  <div class="music-hint" id="musicHint" aria-live="polite">
+    Tap once for music <span aria-hidden="true">❤️</span>
+  </div>
+
+  <!-- Local background music (rename your file to song.mp3 for fewer issues) -->
+  <audio id="bgMusic" preload="auto" playsinline>
+    <source src="The Cuppy Cake Song Original 2D Animation - Sahan Tharaka.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    // ---------------- UI logic ----------------
+    const noBtn = document.getElementById('noBtn');
+    const yesBtn = document.getElementById('yesBtn');
+    const toast = document.getElementById('toast');
+    const modal = document.getElementById('modal');
+    const closeBtn = document.getElementById('closeBtn');
+    const heartsLayer = document.getElementById('heartsLayer');
+
+    let toastTimer = null;
+
+    function showToast(message){
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+    }
+
+    function openModal(){
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeModal(){
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    // ---------------- Soft button "keynote" sound ----------------
+    // Uses Web Audio (tiny synth blip). Note: audio context starts on user gesture (button click is perfect).
+    let audioCtx = null;
+
+    function ensureAudioCtx(){
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    }
+
+    function playClickTone(){
+      try {
+        ensureAudioCtx();
+
+        const now = audioCtx.currentTime;
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, now);          // A5-ish
+        osc.frequency.exponentialRampToValueAtTime(660, now + 0.08); // gentle down-sweep
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);   // soft attack
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12); // quick release
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.14);
+      } catch (e) {}
+    }
+
+    // ---------------- Music logic (with fade-out at end) ----------------
+    const bgMusic = document.getElementById("bgMusic");
+    const musicHint = document.getElementById("musicHint");
+
+    const BASE_VOLUME = 1;   // 0.0 - 1.0
+    const FADE_SECONDS = 3;  // fade at the end
+
+    let isFading = false;
+    let interactionCaptured = false;
+
+    function showHint(){ musicHint.classList.add("show"); }
+    function hideHint(){ musicHint.classList.remove("show"); }
+
+    async function tryAutoplayWithSound() {
+      bgMusic.muted = false;
+      bgMusic.volume = BASE_VOLUME;
+      try {
+        await bgMusic.play();
+        hideHint();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    async function autoplayMutedFallback() {
+      bgMusic.muted = true;
+      bgMusic.volume = BASE_VOLUME;
+      try { await bgMusic.play(); } catch {}
+      showHint();
+    }
+
+    async function enableSoundOnGesture() {
+      bgMusic.muted = false;
+      bgMusic.volume = BASE_VOLUME;
+      try { await bgMusic.play(); } catch {}
+      hideHint();
+    }
+
+    function captureFirstInteraction() {
+      if (interactionCaptured) return;
+      interactionCaptured = true;
+      enableSoundOnGesture();
+      document.removeEventListener("pointerdown", captureFirstInteraction);
+      document.removeEventListener("keydown", captureFirstInteraction);
+    }
+
+    document.addEventListener("pointerdown", captureFirstInteraction, { passive: true });
+    document.addEventListener("keydown", captureFirstInteraction);
+
+    function startFadeOut() {
+      if (isFading) return;
+      if (!isFinite(bgMusic.duration) || bgMusic.duration <= 0) return;
+
+      const remaining = bgMusic.duration - bgMusic.currentTime;
+      if (remaining > FADE_SECONDS) return;
+
+      isFading = true;
+      const startTime = performance.now();
+      const startVol = bgMusic.volume;
+
+      const step = (now) => {
+        const t = (now - startTime) / (FADE_SECONDS * 1000);
+        bgMusic.volume = Math.max(0, startVol * (1 - t));
+        if (t < 1 && !bgMusic.paused) requestAnimationFrame(step);
+      };
+
+      requestAnimationFrame(step);
+    }
+
+    bgMusic.addEventListener("timeupdate", startFadeOut);
+
+    bgMusic.addEventListener("ended", async () => {
+      isFading = false;
+      bgMusic.currentTime = 0;
+      bgMusic.volume = BASE_VOLUME;
+      try { await bgMusic.play(); } catch {}
+    });
+
+    // ---------------- Background hearts effect ----------------
+    const HEARTS = ["❤️","💗","💖","💕","💘"];
+    function spawnHeart(){
+      const el = document.createElement("div");
+      el.className = "heart-float";
+      el.textContent = HEARTS[Math.floor(Math.random() * HEARTS.length)];
+
+      const x = Math.random() * 100; // vw
+      const size = 14 + Math.random() * 18; // px
+      const duration = 7 + Math.random() * 7; // seconds
+      const drift = (Math.random() * 120 - 60).toFixed(0) + "px"; // left/right
+
+      el.style.left = x + "vw";
+      el.style.fontSize = size + "px";
+      el.style.animationDuration = duration + "s";
+      el.style.setProperty("--drift", drift);
+
+      heartsLayer.appendChild(el);
+
+      // cleanup
+      setTimeout(() => el.remove(), (duration + 0.5) * 1000);
+    }
+
+    // spawn hearts gently
+    const heartInterval = setInterval(spawnHeart, 450);
+    // also spawn a few at start
+    for (let i = 0; i < 8; i++) setTimeout(spawnHeart, i * 160);
+
+    // Guarantee music + click tone on button clicks (counts as user gesture)
+    noBtn.addEventListener('click', () => {
+      playClickTone();
+      enableSoundOnGesture();
+      showToast('Wrong answer');
+    });
+
+    yesBtn.addEventListener('click', () => {
+      playClickTone();
+      enableSoundOnGesture();
+      openModal();
+    });
+
+    // Try to start immediately on load:
+    (async function initMusic(){
+      const ok = await tryAutoplayWithSound();
+      if (!ok) await autoplayMutedFallback();
+    })();
+  </script>
+</body>
+</html>
